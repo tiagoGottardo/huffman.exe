@@ -28,7 +28,7 @@ fn main() -> io::Result<()> {
         min_heap.push(Reverse(Node::new(*v).with_char(*k)));
     });
 
-    let mut heap_keys = min_heap.iter().count();
+    let mut heap_keys = min_heap.len();
 
     let root = {
         while heap_keys >= 2 {
@@ -76,8 +76,9 @@ fn main() -> io::Result<()> {
 
     for line_result in reader.lines() {
         line_result?.chars().for_each(|c| {
-            hs.get(&c)
-                .map(|(num, width)| push_arbitrary_bin(&mut body, *num, *width));
+            if let Some((num, width)) = hs.get(&c) {
+                push_arbitrary_bin(&mut body, *num, *width);
+            }
         });
     }
 
