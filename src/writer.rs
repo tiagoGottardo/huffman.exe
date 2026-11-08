@@ -1,4 +1,4 @@
-use std::io::{self, Seek, Write};
+use std::io::{self, Seek, SeekFrom, Write};
 
 pub struct BitWriter<W> {
     out: W,
@@ -31,8 +31,12 @@ impl<W: Write + Seek> BitWriter<W> {
     }
 
     pub fn write_size(&mut self) -> io::Result<()> {
+        let current_position = self.out.stream_position()?;
+
         self.out.rewind()?;
-        self.write(self.total_bits)?;
+        self.out.write_all(&self.total_bits.to_be_bytes())?;
+        self.out.seek(SeekFrom::Start(current_position))?;
+
         Ok(())
     }
 
