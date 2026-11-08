@@ -35,6 +35,14 @@ impl<W: Write> BitWriter<W> {
         Ok(())
     }
 
+    pub fn write_arbitrary_bin_size(&mut self, input: usize, size: usize) -> io::Result<()> {
+        for shift in 1..=size {
+            self.write_bit((input >> (size - shift)) & 1 == 1)?;
+        }
+
+        Ok(())
+    }
+
     pub fn finish(mut self) -> io::Result<W> {
         if self.used > 0 {
             self.byte <<= 8 - self.used; // zeros à direita

@@ -1,4 +1,11 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::{
+    cmp::{Ordering, Reverse},
+    collections::{BinaryHeap, HashMap},
+    fs::File,
+    io::{self, Read, Seek},
+};
+
+const CAPACITY: usize = 8 * 1024;
 
 #[derive(Debug)]
 pub struct Node {
@@ -72,6 +79,29 @@ impl Node {
         }
     }
 
+    pub fn mount_body(&self, file: &mut File) -> io::Result<Vec<bool>> {
+        let mut body: Vec<bool> = vec![];
+        let mut block = [0_u8; CAPACITY];
+
+        let hash_map = self.hash_map();
+
+        loop {
+            let read_bytes = file.read(&mut block)?;
+
+            if read_bytes == 0 {
+                break;
+            }
+
+            for byte in block.iter() {
+                if let Some((num, width)) = hash_map.get(&(*byte as char)) {
+                    push_arbitrary_bin(&mut body, *num, *width);
+                }
+            }
+        }
+
+        Ok(body)
+    }
+
     pub fn hash_map(&self) -> HashMap<char, (usize, usize)> {
         let mut hs = HashMap::new();
 
@@ -110,6 +140,59 @@ impl Node {
 
             right.hash_map_aux(hs, ((num << 1) + 1, bits + 1));
         }
+    }
+
+    pub fn huffman_binary_tree(file: &mut File) -> io::Result<Self> {
+        let mut freq: HashMap<char, usize> = HashMap::new();
+
+        let mut block = [0_u8; CAPACITY];
+
+        loop {
+            let read_bytes = file.read(&mut block)?;
+
+            if read_bytes == 0 {
+                break;
+            }
+
+            for byte in block.iter() {
+                freq.entry(*byte as char)
+                    .and_modify(|f| *f += 1)
+                    .or_insert(1);
+            }
+        }
+
+        file.rewind()?;
+
+        let mut min_heap: BinaryHeap<Reverse<Node>> = BinaryHeap::new();
+
+        freq.iter().for_each(|(k, v)| {
+            min_heap.push(Reverse(Node::new(*v).with_char(*k)));
+        });
+
+        while min_heap.len() >= 2 {
+            let (n, n2) = (min_heap.pop(), min_heap.pop());
+
+            if let (Some(Reverse(n)), Some(Reverse(n2))) = (n, n2) {
+                let (left, right) = if n.value <= n2.value {
+                    (n, n2)
+                } else {
+                    (n2, n)
+                };
+
+                let new_node = Node {
+                    key: None,
+                    value: left.value + right.value,
+                    left: Some(Box::new(left)),
+                    right: Some(Box::new(right)),
+                };
+
+                min_heap.push(Reverse(new_node));
+            }
+        }
+
+        let Reverse(root) = min_heap.pop().expect("Should have one node");
+
+        Ok(root)
     }
 }
 
