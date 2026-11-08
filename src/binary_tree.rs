@@ -24,28 +24,10 @@ impl Node {
         self
     }
 
-    pub fn push(&mut self, value: usize) {
-        if value > self.value {
-            if let Some(ref mut right) = self.right {
-                right.push(value);
-            } else {
-                self.right = Some(Box::new(Node::new(value)));
-            }
-
-            return;
-        }
-
-        if let Some(ref mut left) = self.left {
-            left.push(value);
-        } else {
-            self.left = Some(Box::new(Node::new(value)));
-        }
-    }
-
-    pub fn push_node(&mut self, node: Node) {
+    pub fn push(&mut self, node: Node) {
         if node.value > self.value {
             if let Some(ref mut right) = self.right {
-                right.push_node(node);
+                right.push(node);
             } else {
                 self.right = Some(Box::new(node));
             }
@@ -54,7 +36,7 @@ impl Node {
         }
 
         if let Some(ref mut left) = self.left {
-            left.push_node(node);
+            left.push(node);
         } else {
             self.left = Some(Box::new(node));
         }
