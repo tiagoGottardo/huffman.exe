@@ -2,8 +2,11 @@ use std::{
     cmp::{Ordering, Reverse},
     collections::{BinaryHeap, HashMap},
     fs::File,
+    io::Write,
     io::{self, Read, Seek},
 };
+
+use crate::writer::BitWriter;
 
 const CAPACITY: usize = 8 * 1024;
 
@@ -49,41 +52,37 @@ impl Node {
         }
     }
 
-    pub fn mount_tree_header(&self) -> Vec<bool> {
-        let mut header = vec![];
-
-        self.mount_tree_header_aux(&mut header);
-
-        header
-    }
-
-    fn mount_tree_header_aux(&self, header: &mut Vec<bool>) {
+    pub fn write_header<W: Write + Seek>(&self, bit_writer: &mut BitWriter<W>) -> io::Result<()> {
         if let Some(key) = self.key {
-            header.push(true);
+            bit_writer.write(true)?;
 
             if !key.is_ascii() {
                 panic!("The char {key} is not ascii!");
             };
 
-            push_arbitrary_bin(header, key as usize, 8);
+            bit_writer.write(key as u8)?;
         } else {
-            header.push(false);
+            bit_writer.write(false)?;
         }
 
         if let Some(ref left) = self.left {
-            left.mount_tree_header_aux(header);
+            left.write_header(bit_writer)?;
         }
 
         if let Some(ref right) = self.right {
-            right.mount_tree_header_aux(header);
+            right.write_header(bit_writer)?;
         }
+
+        Ok(())
     }
 
-    pub fn mount_body(&self, file: &mut File) -> io::Result<Vec<bool>> {
-        let mut body: Vec<bool> = vec![];
-        let mut block = [0_u8; CAPACITY];
-
+    pub fn write_body<W: Write + Seek>(
+        &self,
+        file: &mut File,
+        bit_writer: &mut BitWriter<W>,
+    ) -> io::Result<()> {
         let hash_map = self.hash_map();
+        let mut block = [0_u8; CAPACITY];
 
         loop {
             let read_bytes = file.read(&mut block)?;
@@ -94,12 +93,12 @@ impl Node {
 
             for byte in block.iter() {
                 if let Some((num, width)) = hash_map.get(&(*byte as char)) {
-                    push_arbitrary_bin(&mut body, *num, *width);
+                    bit_writer.write((*num, *width))?;
                 }
             }
         }
 
-        Ok(body)
+        Ok(())
     }
 
     pub fn hash_map(&self) -> HashMap<char, (usize, usize)> {
